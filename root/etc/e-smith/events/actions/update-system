@@ -1,0 +1,40 @@
+#!/usr/bin/perl -w
+# ----------------------------------------------
+# contributor: Darrell May <dmay@netsourced.com>
+# contributor: Stephen Noble <stephen@dungog.net>
+# ----------------------------------------------
+
+#package esmith;
+#
+#use strict;
+#use Errno;
+#use esmith::config;
+#use esmith::util;
+#use esmith::db;
+#
+#my %conf;
+#tie %conf, 'esmith::config';
+#
+# --------------------------------------------------------
+# Change to /tmp, and process update.rpm
+# --------------------------------------------------------
+
+    if (-f "/tmp/update.rpm")
+    {
+      chdir("/tmp");
+    }
+    else
+    {
+        system("/bin/touch /tmp/nup");
+    }
+         
+    system("/usr/bin/yum -y localinstall /tmp/update.rpm");
+    system("/bin/rm -f /tmp/update.rpm");
+
+
+# --------------------------------------------------------
+# make sure /tmp rights are reset
+# --------------------------------------------------------
+system("/bin/chmod -f 1777 /tmp");
+
+exit (0);

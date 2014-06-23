@@ -1,0 +1,206 @@
+#!/usr/bin/perl -wT
+
+#----------------------------------------------------------------------
+# heading     : Administration
+# description : Update system
+# navigation  : 4000 4390
+#
+# copyright (C) Eneo Tecnología S.C.
+# contributor: Darrell May <dmay@netsourced.com>
+# contributor: Stephen Noble <stephen@dungog.net>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
+#----------------------------------------------------------------------
+
+package esmith;
+
+use strict;
+use CGI ':all';
+use CGI::Carp qw(fatalsToBrowser);
+use FileHandle;
+
+use esmith::cgi;
+use esmith::config;
+use esmith::util;
+use esmith::db;
+
+sub showInitial ($$);
+sub performAndShowResult ($);
+
+BEGIN
+{
+    # Clear PATH and related environment variables so that calls to
+    # external programs do not cause results to be tainted. See
+    # "perlsec" manual page for details.
+
+    #path hack see /sbin/e-smith/yum line 12 & 17
+    $ENV {'PATH'} = '/bin:/usr/bin';
+    $ENV {'SHELL'} = '/bin/bash';
+    delete $ENV {'ENV'};
+}
+
+esmith::util::setRealToEffective ();
+
+my %conf;
+tie %conf, 'esmith::config';
+
+#------------------------------------------------------------
+# examine state parameter and display the appropriate form
+#------------------------------------------------------------
+
+my $q = new CGI;
+
+if (! grep (/^state$/, $q->param))
+{
+    showInitial ($q, '');
+}
+
+elsif ($q->param ('state') eq "perform")
+{
+    performAndShowResult ($q);
+}
+
+else
+{
+    esmith::cgi::genStateError ($q, \%conf);
+}
+
+exit (0);
+
+#------------------------------------------------------------
+# subroutine to display initial form
+#------------------------------------------------------------
+
+sub showInitial ($$)
+{
+    my ($q, $msg) = @_;
+
+    my %yesnoLabels = ('yes' => 'Yes',
+                       'no'  => 'No');
+
+    if ($msg eq '')
+    {
+        esmith::cgi::genHeaderNonCacheable
+            ($q, \%conf, 'Update system');
+    }
+    else
+    {
+        esmith::cgi::genHeaderNonCacheable
+            ($q, \%conf, 'Update system');
+
+        print $q->p ($msg);
+        print $q->hr;
+    }
+
+    print $q->start_multipart_form (
+            -method => 'POST',
+            -action => $q->url (-absolute => 1));
+
+    print $q->p ('The Update system panel is used for uploading and installing rpms.
+                  The rpm will be installed with YUM and will attempt to meet any dependancies
+                  from your configured repositories, if the dependancies fail the install will not proceed.
+                  <p>
+                  WARNING: as this is automatic, you are not given the [y/n] option to cancel. 
+                  <p>
+                  Use the Browse button below to find the .rpm file on your workstation.
+                  The Update button will upload the file to the server and automatically
+                  launch the install process. When completed you will be shown a log file which you
+                  may review to see if the update was successful and without errors.
+                  <p>
+                  NOTE: The screen will not refresh until the install is complete');
+
+    print $q->table ({border => 0, cellspacing => 0, cellpadding => 4},
+
+    esmith::cgi::genWidgetRow ($q, "Update file ",
+                               $q->filefield (-name    => 'updateFile',
+                                              -default => "update.rpm",
+                                              -size  => 32)));
+
+    print $q->p (esmith::cgi::genButtonRow ($q,
+                               $q->submit (-name => 'action', -value => 'Update')));
+
+    print $q->hidden (-name => 'state', -override => 1, -default => 'perform');
+
+    print $q->endform;
+    esmith::cgi::genFooter ($q);
+}
+
+sub performAndShowResult ($)
+{
+    my ($q) = @_;
+
+    my $updateFile    = $q->param ('updateFile');
+
+    if (-e "/tmp/update.rpm")
+    {
+      unlink ("/tmp/update.rpm");
+    }
+
+    if ("$updateFile" ne "")
+    {
+      unlink ("/tmp/update.rpm");
+      open (WR,">/tmp/update.rpm")||die ("Error while opening temporally file.\n");
+      while (<$updateFile>)
+      {
+         print WR;
+      }
+      close WR;
+    }
+
+    system ("/sbin/e-smith/signal-event", "update-system") == 0
+    or die ("Error occurred while updating the system.\n");
+
+    sleep 3;
+
+    system ("/usr/bin/tail -200 /var/log/messages > /var/log/update-system.log") == 0
+        or die ("Error occurred while creating /var/log/update-system.log.\n");
+
+    esmith::cgi::genHeaderNonCacheable
+        ($q, \%conf, "Update uploaded successfully");
+
+    print $q->p ('Your server has being updated.
+                  Please review the log file below for the last
+                  <B>Processing event: update-system</B> to make sure no errors occured.');
+
+    print '</table>';
+
+    print $q->hr;
+
+    if ( -f "/var/log/update-system.log" )
+    {
+      print $q->table ({border => 0, cellspacing => 0, cellpadding => 4});
+
+      print "<pre>";
+      open (INF,"/var/log/update-system.log")
+       or die ("can't open /var/log/update-system.log file: $1");
+
+      while (<INF>)
+      {
+          print "$_";
+      }
+
+      close INF;
+      print "</pre>\n";
+    }
+    else
+    {
+      print $q->table ({border => 0, cellspacing => 0, cellpadding => 4},
+      (esmith::cgi::genSmallRedCell ($q, "NOTE: You have no /var/log/update-system.log ".
+                                     "file, you shouldn't see this?")));
+    }
+
+    esmith::cgi::genFooter ($q);
+    return;
+}

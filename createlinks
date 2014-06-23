@@ -1,0 +1,10 @@
+#!/usr/bin/perl -w
+
+use esmith::Build::CreateLinks qw(:all);
+use File::Basename;
+use File::Path;
+
+panel_link("update-system", "manager");
+
+event_link("update-system", "update-system", "10");
+
