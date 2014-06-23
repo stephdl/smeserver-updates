@@ -2,11 +2,11 @@
 # Authority: dungog
 # Name: Stephen Noble
 
-Summary: Update system panel for SMEserver 7
+Summary: Update system panel for SMEserver ç
 %define name smeserver-updates
 Name: %{name}
-%define version 1.2
-%define release 5
+%define version 1.4
+%define release 1
 Version: %{version}
 Release: %{release}%{?dist}
 License: GPL
@@ -14,15 +14,18 @@ Group: System/Administration
 Source: %{name}-%{version}.tar.gz
 BuildRoot: /var/tmp/%{name}-%{version}-%{release}-buildroot
 BuildArchitectures: noarch
-Requires: e-smith-release >= 8.0
+Requires: e-smith-release >= 9.0
 BuildRequires: e-smith-devtools
 AutoReqProv: no
 
 %description
-Update system panel for sme server 8
+Update system panel for sme server 9
 permitting the uploading and installing of .rpms
 
 %changelog
+* Mon Jun 23 2014 stephane de Labrusse <stephdl@de-labrusse.fr> 1.4-1.sme
+- Initial release to sme9
+
 * Wed Jun 26 2013 JP Pialasse <tests@pialasse.com>  1.2-5.sme
 - fixing spec file
 
